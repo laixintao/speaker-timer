@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3 — 2026-10-05
+
+- Refine timer controls, add section navigation and tech talk template (`418d894`)
+
+[Release notes](docs/releases/v1.0.3.md)
+
 ## 1.0.2 — 2026-10-05
 
 - Show persistent timer controls and full presentation agenda (`2fc23c6`)
