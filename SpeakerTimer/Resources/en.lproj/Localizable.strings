@@ -1,0 +1,7 @@
+/* Speaker Timer currently ships in English. This table establishes the bundle's localization structure. */
+"Speaker Timer" = "Speaker Timer";
+"Start" = "Start";
+"Pause" = "Pause";
+"Resume" = "Resume";
+"Reset" = "Reset";
+"End timer" = "End timer";
