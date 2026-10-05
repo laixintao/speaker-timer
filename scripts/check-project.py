@@ -40,6 +40,11 @@ def check(tag=None):
         if not (ROOT / name).is_file():
             errors.append(f"Missing required file: {name}")
 
+    for workflow in (ROOT / ".github/workflows").glob("*.yml"):
+        for action in re.findall(r"uses:\s*([^\s#]+)", workflow.read_text()):
+            if not action.startswith("./") and not re.fullmatch(r"[^@]+@[0-9a-f]{40}", action):
+                errors.append(f"Action must use a full commit SHA in {workflow.name}: {action}")
+
     changelog = (ROOT / "CHANGELOG.md").read_text()
     if not re.search(rf"^## {re.escape(version)}(?:\s|$)", changelog, re.MULTILINE):
         errors.append(f"CHANGELOG.md needs an entry for {version}")
