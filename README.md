@@ -21,7 +21,7 @@ Speaker Timer requires macOS 14 Sonoma or later and supports Apple Silicon and I
 brew install --cask laixintao/tap/speaker-timer
 ```
 
-You can also download `Speaker-Timer-<version>-universal.dmg` from [GitHub Releases](https://github.com/laixintao/speaker-timer/releases), open it, and drag Speaker Timer into Applications.
+You can also download `Speaker-Timer-<version>-macos-universal.dmg` from [GitHub Releases](https://github.com/laixintao/speaker-timer/releases), open it, and drag Speaker Timer into Applications. Version 1.0.0 uses the earlier filename `Speaker-Timer-1.0.0-universal.dmg`.
 
 Releases are ad-hoc signed and are not notarized with an Apple Developer ID. If macOS blocks the first launch, follow Apple's instructions and use **System Settings → Privacy & Security → Open Anyway** for an app you trust.
 

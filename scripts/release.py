@@ -40,12 +40,12 @@ Speaker Timer keeps your presentation timeline visible above full-screen slides 
 
 ## Install
 
-Download **Speaker-Timer-{version}-universal.dmg**, open it, and drag Speaker Timer into Applications. The ZIP contains the same universal app for Apple Silicon and Intel Macs.
+Download **Speaker-Timer-{version}-macos-universal.dmg**, open it, and drag Speaker Timer into Applications. The ZIP contains the same universal app for Apple Silicon and Intel Macs.
 
 - Requires macOS 14 Sonoma or later.
 - Ad-hoc signed and not Apple-notarized. If blocked, use System Settings → Privacy & Security → Open Anyway for an app you trust.
 - SHA-256 checksums are in `SHA256SUMS`.
-- Verify provenance with `gh attestation verify Speaker-Timer-{version}-universal.dmg --repo laixintao/speaker-timer`.
+- Verify provenance with `gh attestation verify Speaker-Timer-{version}-macos-universal.dmg --repo laixintao/speaker-timer`.
 """
 
 

@@ -48,7 +48,7 @@ def check(tag=None):
         errors.append(f"Missing release notes: {notes.relative_to(ROOT)}")
 
     readme = (ROOT / "README.md").read_text()
-    for expected in ("Speaker-Timer-<version>-universal.dmg", "laixintao/tap/speaker-timer", "make release"):
+    for expected in ("Speaker-Timer-<version>-macos-universal.dmg", "laixintao/tap/speaker-timer", "make release"):
         if expected not in readme:
             errors.append(f"README.md is missing: {expected}")
 

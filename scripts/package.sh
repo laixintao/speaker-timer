@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# -eq 0 ]] || { echo "Usage: scripts/package.sh" >&2; exit 1; }
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PROJECT_ROOT/SpeakerTimer/Info.plist")"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid app version: $VERSION" >&2; exit 1; }
-NAME="Speaker-Timer-$VERSION-universal"
+NAME="Speaker-Timer-$VERSION-macos-universal"
 
 "$PROJECT_ROOT/scripts/build.sh" Release universal
 mkdir -p "$PROJECT_ROOT/dist"

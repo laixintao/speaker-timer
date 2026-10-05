@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# -eq 0 ]] || { echo "Usage: scripts/test-package.sh (run package.sh first)" >&2; exit 1; }
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PROJECT_ROOT/SpeakerTimer/Info.plist")"
 DIST_DIR="$PROJECT_ROOT/dist"
-NAME="Speaker-Timer-$VERSION-universal"
+NAME="Speaker-Timer-$VERSION-macos-universal"
 mkdir -p "$PROJECT_ROOT/build/Tests"
 TEST_DIR="$(mktemp -d "$PROJECT_ROOT/build/Tests/package.XXXXXX")"
 MOUNT_POINT="$TEST_DIR/mounted"
