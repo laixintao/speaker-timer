@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4 — 2026-10-05
+
+- Handle background dragging before SwiftUI consumes mouse events (`73db860`)
+
+[Release notes](docs/releases/v1.0.4.md)
+
 ## 1.0.3 — 2026-10-05
 
 - Refine timer controls, add section navigation and tech talk template (`418d894`)
