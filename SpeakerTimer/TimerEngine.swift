@@ -86,6 +86,18 @@ final class TimerEngine: ObservableObject {
         }
     }
 
+    /// Seek to a section's planned start. An idle timer is cued in the paused state.
+    func jump(toSegment id: UUID) {
+        guard let plan, plan.validationMessage == nil,
+              let index = plan.segments.firstIndex(where: { $0.id == id }) else { return }
+        accumulatedSeconds = TimeInterval(plan.segments.prefix(index).reduce(0) { $0 + $1.durationSeconds })
+        runningSince = phase == .running ? timeSource.now : nil
+        if phase == .idle { phase = .paused }
+        clearTransitionMessage()
+        update(triggerEvents: false)
+        announce(.section(title: plan.segments[index].title))
+    }
+
     func reset() {
         accumulatedSeconds = 0
         runningSince = nil

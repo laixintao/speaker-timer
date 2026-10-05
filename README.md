@@ -2,7 +2,7 @@
 
 Speaker Timer is a native macOS presentation timer that keeps your full agenda visible above full-screen slides. It counts up from zero, highlights the current section, shows upcoming checkpoints, and continues into overtime so you always know where the talk stands.
 
-![Speaker Timer with a 50-minute agenda, completed and current sections, checkpoint times, and always-visible controls](docs/images/speaker-timer.png)
+![Speaker Timer with a 50-minute tech talk agenda, completed and current sections, checkpoint times, and always-visible controls](docs/images/speaker-timer.png)
 
 Your entire talk at a glance: elapsed time, progress, every section's time range, and controls that stay within reach.
 
@@ -15,6 +15,7 @@ Your entire talk at a glance: elapsed time, progress, every section's time range
 - Four high-contrast timer themes: Frosted Dark, Black, Cream, and Blue.
 - Non-activating floating display with always-visible controls.
 - Complete agenda with time ranges, completed sections, and a highlighted current section.
+- Click any agenda section to jump to its start while keeping the timer running or paused.
 - Accurate pause, resume, wake, and overtime behavior based on a monotonic clock.
 - No account, analytics, network access, or third-party dependencies.
 
@@ -34,8 +35,9 @@ Releases are ad-hoc signed and are not notarized with an Apple Developer ID. If 
 
 1. Create or select a presentation plan.
 2. Add sections and enter durations as minutes (`5`), minutes and seconds (`5:30`), or hours, minutes, and seconds (`1:05:00`).
-3. Press **Start**. Move the floating timer to the presenter display and resize it using the always-visible controls.
+3. Press **Start**. Drag an empty area of the floating timer to move it to the presenter display, and use the corner handle to resize it.
 4. Press Space while Speaker Timer is active to pause or resume. Press ⌘R to reset.
+5. Click a section in the floating agenda to jump forward or backward to its planned start time. A running timer keeps running; a paused timer stays paused. Before starting, clicking a section cues it in the paused state.
 
 The floating timer does not take keyboard focus from the slide application. Its controls stay visible, and you can scroll the agenda when it is longer than the window. With an extended desktop, a timer placed on the MacBook display is not shown on the external presentation display.
 

@@ -17,6 +17,7 @@ struct SmokeTests {
         testDurationFormatting()
         testTimelineTransitions()
         testPauseAndResume()
+        testSectionJump()
         testSkippedBoundariesDoNotBurst()
         testPlanPersistenceAndRecovery()
         renderThemeSnapshots()
@@ -91,6 +92,51 @@ struct SmokeTests {
         engine.endSession()
     }
 
+    private static func testSectionJump() {
+        let clock = FakeTimeSource()
+        let engine = TimerEngine(timeSource: clock)
+        let plan = PresentationPlan(name: "Tech talk", segments: [
+            Segment(title: "Concepts", durationSeconds: 60),
+            Segment(title: "Demo", durationSeconds: 120),
+            Segment(title: "Q&A", durationSeconds: 60),
+        ])
+        var events: [BoundaryEvent] = []
+        engine.onBoundary = { events.append($0) }
+        engine.load(plan)
+        engine.jump(toSegment: plan.segments[1].id)
+        expect(engine.phase == .paused && engine.snapshot.elapsedSeconds == 60, "idle jump should cue section without starting")
+        clock.advance(20)
+        engine.refresh()
+        expect(engine.snapshot.elapsedSeconds == 60, "cued timer should stay paused")
+        engine.resume()
+        clock.advance(15)
+        engine.jump(toSegment: plan.segments[2].id)
+        expect(engine.phase == .running && engine.snapshot.elapsedSeconds == 180, "running jump should reset clock anchor to target")
+        let eventCount = events.count
+        engine.refresh()
+        expect(events.count == eventCount, "jump should not repeat its checkpoint event on refresh")
+        clock.advance(60)
+        engine.refresh()
+        expect(engine.snapshot.isOvertime, "jumped section should still reach overtime")
+        engine.jump(toSegment: plan.segments[0].id)
+        expect(!engine.snapshot.isOvertime && engine.snapshot.elapsedSeconds == 0, "backward jump should leave overtime")
+        clock.advance(10)
+        engine.pause()
+        engine.jump(toSegment: plan.segments[1].id)
+        clock.advance(20)
+        engine.refresh()
+        expect(engine.phase == .paused && engine.snapshot.elapsedSeconds == 60, "paused jump should remain paused")
+        engine.jump(toSegment: UUID())
+        expect(engine.snapshot.elapsedSeconds == 60, "unknown section should be ignored")
+        engine.resume()
+        clock.advance(120)
+        engine.refresh()
+        expect(engine.snapshot.currentSegmentIndex == 2, "natural checkpoints should work after a backward jump")
+        engine.endSession()
+        engine.jump(toSegment: plan.segments[0].id)
+        expect(engine.activePlan == nil, "jump without a loaded plan should be ignored")
+    }
+
     private static func testSkippedBoundariesDoNotBurst() {
         let clock = FakeTimeSource()
         let engine = TimerEngine(timeSource: clock)
@@ -157,7 +203,7 @@ struct SmokeTests {
             engine.refresh()
             render(
                 TimerDisplayView(engine: engine, store: store),
-                size: CGSize(width: 470, height: 400),
+                size: CGSize(width: 470, height: 454),
                 to: output.appendingPathComponent("timer-\(theme.rawValue).png")
             )
             if theme == .blue {
@@ -200,7 +246,7 @@ struct SmokeTests {
         engine.refresh()
         render(
             TimerDisplayView(engine: engine, store: store),
-            size: CGSize(width: 470, height: 400),
+            size: CGSize(width: 470, height: 454),
             to: output.appendingPathComponent("timer-overtime.png")
         )
         engine.endSession()
@@ -221,7 +267,15 @@ struct SmokeTests {
         overlay.show()
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
         let windows = NSApp.windows.filter { !existing.contains($0.windowNumber) && $0.isVisible }
-        expect(windows.count == 3, "display, controls, and resize handle should remain visible without hover")
+        expect(windows.count == 2, "display with embedded controls and resize handle should remain visible without hover")
+        func buttons(in view: NSView) -> [NSButton] {
+            (view as? NSButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
+        }
+        let display = windows.max { $0.frame.height < $1.frame.height }
+        expect(display?.isMovableByWindowBackground == true, "overlay should support dragging its background")
+        expect(display?.contentView?.mouseDownCanMoveWindow == true, "hosting view should allow blank-area dragging")
+        let embeddedButtons = display?.contentView.map { buttons(in: $0) } ?? []
+        expect(embeddedButtons.count == 6, "all six timer buttons should be embedded in the main card")
         guard let first = windows.first else { overlay.hide(); return }
         let bounds = windows.reduce(first.frame) { $0.union($1.frame) }.insetBy(dx: -24, dy: -24)
         let image = NSImage(size: bounds.size)
@@ -249,7 +303,7 @@ struct SmokeTests {
             expect(false, "could not render complete overlay screenshot")
         }
         overlay.hide()
-        expect(windows.allSatisfy { !$0.isVisible }, "ending overlay should hide all three panels")
+        expect(windows.allSatisfy { !$0.isVisible }, "ending overlay should hide all panels")
     }
 
     private static func render<V: View>(_ view: V, size: CGSize, to output: URL) {

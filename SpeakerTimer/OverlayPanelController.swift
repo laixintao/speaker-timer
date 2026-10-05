@@ -8,44 +8,49 @@ private final class PassivePanel: NSPanel {
 }
 
 private final class OverlayButton: NSButton {
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-}
-
-@MainActor
-private final class MoveHandleView: NSView {
-    var onMouseDown: ((NSEvent) -> Void)?
+    var surfaceColor: NSColor = .darkGray { didSet { needsDisplay = true } }
+    private var isHovered = false
     private var tracking: NSTrackingArea?
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        toolTip = "Drag to move"
-        setAccessibilityLabel("Drag to move")
-
-        let image = NSImageView(image: NSImage(systemSymbolName: "line.3.horizontal", accessibilityDescription: "Drag to move")!)
-        image.contentTintColor = .labelColor
-        image.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(image)
-        NSLayoutConstraint.activate([
-            image.centerXAnchor.constraint(equalTo: centerXAnchor),
-            image.centerYAnchor.constraint(equalTo: centerYAnchor),
-            image.widthAnchor.constraint(equalToConstant: 20),
-            image.heightAnchor.constraint(equalToConstant: 16),
-        ])
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let tracking { removeTrackingArea(tracking) }
-        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .cursorUpdate, .inVisibleRect], owner: self)
+        let area = NSTrackingArea(rect: bounds, options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect], owner: self)
         addTrackingArea(area)
         tracking = area
     }
 
-    override func cursorUpdate(with event: NSEvent) { NSCursor.openHand.set() }
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-    override func mouseDown(with event: NSEvent) { onMouseDown?(event) }
+    override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true }
+    override func highlight(_ flag: Bool) { super.highlight(flag); needsDisplay = true }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let pressed = isHighlighted
+        let rect = bounds.insetBy(dx: 1, dy: 2).offsetBy(dx: 0, dy: pressed ? 1 : 0)
+        let shape = NSBezierPath(roundedRect: rect, xRadius: 8, yRadius: 8)
+        let fill = surfaceColor.blended(withFraction: pressed ? 0.18 : isHovered ? 0.14 : 0,
+                                       of: pressed ? .black : .white) ?? surfaceColor
+        NSGraphicsContext.saveGraphicsState()
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(pressed ? 0.08 : 0.30)
+        shadow.shadowBlurRadius = pressed ? 1 : 3
+        shadow.shadowOffset = NSSize(width: 0, height: pressed ? 0 : -1)
+        shadow.set()
+        fill.setFill()
+        shape.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        NSColor.white.withAlphaComponent(isHovered ? 0.35 : 0.16).setStroke()
+        shape.lineWidth = 0.75
+        shape.stroke()
+        super.draw(dirtyRect)
+    }
+}
+
+@MainActor
+private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
+    override var mouseDownCanMoveWindow: Bool { true }
 }
 
 @MainActor
@@ -109,22 +114,19 @@ final class OverlayPanelController {
     private let store: PlanStore
     private let defaults: UserDefaults
     private let displayPanel: PassivePanel
-    private let controlsPanel: PassivePanel
+    private let controlsView = NSView()
     private let resizePanel: PassivePanel
-    private let moveHandle = MoveHandleView(frame: .zero)
     private let resizeHandle = ResizeHandleView(frame: .zero)
     private let playButton = OverlayButton()
     private let pinButton = OverlayButton()
     private let soundButton = OverlayButton()
-    private var moveTrackingTimer: Timer?
     private var controlsVisible = false
     private var resizeStartFrame = CGRect.zero
-    private var isMoving = false
     private var isResizing = false
     private var cancellables: Set<AnyCancellable> = []
 
-    private let defaultSize = CGSize(width: 470, height: 400)
-    private let minimumSize = CGSize(width: 380, height: 320)
+    private let defaultSize = CGSize(width: 470, height: 454)
+    private let minimumSize = CGSize(width: 380, height: 374)
     private let maximumSize = CGSize(width: 720, height: 800)
     private let controlsGap: CGFloat = 7
     private let edgeInset: CGFloat = 16
@@ -154,23 +156,29 @@ final class OverlayPanelController {
         }
 
         displayPanel = makePanel(size: defaultSize, shadow: true)
-        controlsPanel = makePanel(size: CGSize(width: 346, height: 46), shadow: true)
         resizePanel = makePanel(size: CGSize(width: 26, height: 26), shadow: false)
 
-        let hosting = NSHostingView(rootView: TimerDisplayView(engine: engine, store: store))
+        let hosting = DraggableHostingView(rootView: TimerDisplayView(engine: engine, store: store))
         hosting.frame = CGRect(origin: .zero, size: defaultSize)
         hosting.autoresizingMask = [.width, .height]
         displayPanel.contentView = hosting
         displayPanel.ignoresMouseEvents = false
+        displayPanel.isMovableByWindowBackground = true
 
         configureControls()
+        hosting.addSubview(controlsView)
         configureResizeHandle()
         applyWindowLevel()
 
-        moveHandle.onMouseDown = { [weak self] event in self?.beginMove(with: event) }
-        engine.$phase.sink { [weak self] _ in self?.updateControls() }.store(in: &cancellables)
-        store.$alwaysOnTop.sink { [weak self] _ in self?.applyWindowLevel() }.store(in: &cancellables)
-        store.$soundEnabled.sink { [weak self] _ in self?.updateControls() }.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSWindow.didMoveNotification, object: displayPanel)
+            .sink { [weak self] _ in
+                self?.layoutChrome()
+                self?.saveFrame()
+            }.store(in: &cancellables)
+        engine.$phase.receive(on: RunLoop.main).sink { [weak self] _ in self?.updateControls() }.store(in: &cancellables)
+        store.$alwaysOnTop.receive(on: RunLoop.main).sink { [weak self] _ in self?.applyWindowLevel() }.store(in: &cancellables)
+        store.$soundEnabled.receive(on: RunLoop.main).sink { [weak self] _ in self?.updateControls() }.store(in: &cancellables)
+        store.$theme.sink { [weak self] theme in self?.updateControlColors(theme: theme) }.store(in: &cancellables)
     }
 
     var isVisible: Bool { displayPanel.isVisible }
@@ -182,29 +190,18 @@ final class OverlayPanelController {
         }
         displayPanel.orderFrontRegardless()
         setControlsVisible(true)
-        startMoveTracking()
         layoutChrome()
     }
 
     func hide() {
-        finishMove()
         setControlsVisible(false)
-        stopMoveTracking()
         displayPanel.orderOut(nil)
     }
 
     private func configureControls() {
-        let background = NSVisualEffectView()
-        background.material = .hudWindow
-        background.blendingMode = .behindWindow
-        background.state = .active
+        let background = controlsView
         background.wantsLayer = true
-        background.layer?.cornerRadius = 12
-        controlsPanel.contentView = background
-
-        moveHandle.translatesAutoresizingMaskIntoConstraints = false
-        moveHandle.widthAnchor.constraint(equalToConstant: 38).isActive = true
-        moveHandle.heightAnchor.constraint(equalToConstant: 38).isActive = true
+        background.layer?.cornerRadius = 10
 
         func configure(_ button: OverlayButton, symbol: String, label: String, action: Selector) {
             button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
@@ -231,7 +228,7 @@ final class OverlayPanelController {
         let end = OverlayButton()
         configure(end, symbol: "xmark", label: "End timer", action: #selector(endSession))
 
-        let stack = NSStackView(views: [moveHandle, playButton, reset, editor, pinButton, soundButton, end])
+        let stack = NSStackView(views: [playButton, reset, editor, pinButton, soundButton, end])
         stack.orientation = .horizontal
         stack.alignment = .centerY
         stack.spacing = 6
@@ -261,7 +258,6 @@ final class OverlayPanelController {
 
         resizeHandle.onBegin = { [weak self] in
             guard let self else { return }
-            self.finishMove()
             self.isResizing = true
             self.resizeStartFrame = self.displayPanel.frame
         }
@@ -277,8 +273,7 @@ final class OverlayPanelController {
     private func applyWindowLevel() {
         let level: NSWindow.Level = store.alwaysOnTop ? .floating : .normal
         displayPanel.level = level
-        controlsPanel.level = NSWindow.Level(rawValue: level.rawValue + 1)
-        resizePanel.level = controlsPanel.level
+        resizePanel.level = NSWindow.Level(rawValue: level.rawValue + 1)
         updateControls()
     }
 
@@ -303,6 +298,31 @@ final class OverlayPanelController {
         let soundSymbol = store.soundEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
         soundButton.image = NSImage(systemSymbolName: soundSymbol, accessibilityDescription: "Checkpoint sound")
         soundButton.contentTintColor = store.soundEnabled ? .controlAccentColor : .secondaryLabelColor
+        updateControlColors(theme: store.theme)
+    }
+
+    private func updateControlColors(theme: OverlayTheme) {
+        let palette = ThemePalette.palette(for: theme, overtime: engine.snapshot.isOvertime)
+        let foreground = NSColor(palette.foreground)
+        let accent = NSColor(palette.accent)
+        controlsView.layer?.backgroundColor = NSColor.clear.cgColor
+        let surface: NSColor
+        switch theme {
+        case .blue: surface = NSColor(calibratedRed: 0.10, green: 0.27, blue: 0.62, alpha: 1)
+        case .cream: surface = NSColor(calibratedRed: 0.96, green: 0.92, blue: 0.83, alpha: 1)
+        case .black, .frostedDark: surface = NSColor(calibratedWhite: 0.19, alpha: 1)
+        }
+        for stack in controlsView.subviews.compactMap({ $0 as? NSStackView }) {
+            for view in stack.arrangedSubviews {
+                if let button = view as? NSButton { button.contentTintColor = foreground }
+                if let button = view as? OverlayButton { button.surfaceColor = surface }
+                for image in view.subviews.compactMap({ $0 as? NSImageView }) {
+                    image.contentTintColor = foreground
+                }
+            }
+        }
+        pinButton.contentTintColor = store.alwaysOnTop ? accent : foreground.withAlphaComponent(0.6)
+        soundButton.contentTintColor = store.soundEnabled ? accent : foreground.withAlphaComponent(0.6)
     }
 
     @objc private func toggleRunning() {
@@ -323,9 +343,9 @@ final class OverlayPanelController {
         let visible = (displayPanel.screen ?? NSScreen.main)?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1280, height: 800)
         return CGRect(
             x: visible.minX + edgeInset,
-            y: visible.minY + edgeInset + controlsPanel.frame.height + controlsGap,
+            y: visible.minY + edgeInset,
             width: max(1, visible.width - edgeInset * 2 - resizePanel.frame.width - controlsGap),
-            height: max(1, visible.height - edgeInset * 2 - controlsPanel.frame.height - controlsGap)
+            height: max(1, visible.height - edgeInset * 2)
         )
     }
 
@@ -337,9 +357,9 @@ final class OverlayPanelController {
         let visible = screen?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1280, height: 800)
         let area = CGRect(
             x: visible.minX + edgeInset,
-            y: visible.minY + edgeInset + controlsPanel.frame.height + controlsGap,
+            y: visible.minY + edgeInset,
             width: max(1, visible.width - edgeInset * 2 - resizePanel.frame.width - controlsGap),
-            height: max(1, visible.height - edgeInset * 2 - controlsPanel.frame.height - controlsGap)
+            height: max(1, visible.height - edgeInset * 2)
         )
         let candidate = saved ?? CGRect(
             x: area.maxX - defaultSize.width,
@@ -363,31 +383,11 @@ final class OverlayPanelController {
     }
 
     private func layoutChrome() {
-        guard !isMoving else { return }
         let frame = displayPanel.frame
-        let screen = (displayPanel.screen ?? NSScreen.main)?.visibleFrame.insetBy(dx: edgeInset, dy: edgeInset)
-            ?? CGRect(x: 16, y: 16, width: 1248, height: 768)
-        let controlsX = min(max(frame.midX - controlsPanel.frame.width / 2, screen.minX), screen.maxX - controlsPanel.frame.width)
-        controlsPanel.setFrameOrigin(CGPoint(x: controlsX, y: frame.minY - controlsPanel.frame.height - controlsGap))
+        let width = min(260, max(1, frame.width - 36))
+        let y: CGFloat = displayPanel.contentView?.isFlipped == true ? frame.height - 60 : 14
+        controlsView.frame = CGRect(x: (frame.width - width) / 2, y: y, width: width, height: 46)
         resizePanel.setFrameOrigin(CGPoint(x: frame.maxX + controlsGap, y: frame.minY))
-    }
-
-    private func beginMove(with event: NSEvent) {
-        guard displayPanel.isVisible, controlsVisible, !isMoving, !isResizing else { return }
-        isMoving = true
-        controlsPanel.addChildWindow(displayPanel, ordered: .below)
-        controlsPanel.addChildWindow(resizePanel, ordered: .above)
-        controlsPanel.performDrag(with: event)
-        if NSEvent.pressedMouseButtons & 1 == 0 { finishMove() }
-    }
-
-    private func finishMove() {
-        guard isMoving else { return }
-        controlsPanel.removeChildWindow(displayPanel)
-        controlsPanel.removeChildWindow(resizePanel)
-        isMoving = false
-        keepOnScreen()
-        saveFrame()
     }
 
     private func resize(by delta: CGPoint) {
@@ -416,43 +416,16 @@ final class OverlayPanelController {
         defaults.set(NSStringFromRect(displayPanel.frame), forKey: "overlayFrame")
     }
 
-    private func startMoveTracking() {
-        guard moveTrackingTimer == nil else { return }
-        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] timer in
-            guard let self else {
-                timer.invalidate()
-                return
-            }
-            MainActor.assumeIsolated { self.updateMoveTracking() }
-        }
-        timer.tolerance = 0.015
-        RunLoop.main.add(timer, forMode: .common)
-        moveTrackingTimer = timer
-        updateMoveTracking()
-    }
-
-    private func stopMoveTracking() {
-        moveTrackingTimer?.invalidate()
-        moveTrackingTimer = nil
-    }
-
-    private func updateMoveTracking() {
-        guard displayPanel.isVisible else { return }
-        if isMoving {
-            if NSEvent.pressedMouseButtons & 1 == 0 { finishMove() }
-        }
-    }
-
     private func setControlsVisible(_ visible: Bool) {
         let shouldShow = visible && displayPanel.isVisible
         guard shouldShow != controlsVisible else { return }
         controlsVisible = shouldShow
         if shouldShow {
             layoutChrome()
-            controlsPanel.orderFrontRegardless()
+            controlsView.isHidden = false
             resizePanel.orderFrontRegardless()
-        } else if !isMoving && !isResizing {
-            controlsPanel.orderOut(nil)
+        } else if !isResizing {
+            controlsView.isHidden = true
             resizePanel.orderOut(nil)
         }
     }

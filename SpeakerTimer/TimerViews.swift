@@ -146,15 +146,29 @@ struct TimerDisplayView: View {
                 content(snapshot: snapshot, palette: palette, size: geometry.size)
                     .padding(.horizontal, max(18, geometry.size.width * 0.045))
                     .padding(.vertical, 20)
+                    .padding(.bottom, 54)
 
                 if let message = engine.transitionMessage {
-                    Text(message)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    HStack(spacing: 8) {
+                        Image(systemName: snapshot.isOvertime ? "exclamationmark.circle.fill" : "arrow.right.circle.fill")
+                            .foregroundStyle(snapshot.isOvertime ? Color.white : Color.yellow)
+                        Text(message)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(snapshot.isOvertime ? Color.red : palette.accent)
-                        .clipShape(Capsule())
+                        .padding(.vertical, 9)
+                        .background(snapshot.isOvertime
+                            ? Color(red: 0.65, green: 0.04, blue: 0.06)
+                            : Color(red: 0.035, green: 0.055, blue: 0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(snapshot.isOvertime ? Color.white : Color.yellow, lineWidth: 1.5)
+                        }
+                        .shadow(color: .black.opacity(0.35), radius: 8, y: 3)
                         .padding(12)
                         .transition(reduceMotion ? .opacity : .scale.combined(with: .opacity))
                         .accessibilityAddTraits(.isStaticText)
@@ -209,6 +223,7 @@ struct TimerDisplayView: View {
                         .font(.system(size: max(11, min(14, size.width * 0.03)), weight: .medium, design: .rounded).monospacedDigit())
                         .foregroundStyle(palette.secondary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 } else {
                     Text("OVERTIME")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
@@ -242,7 +257,10 @@ struct TimerDisplayView: View {
                             let start = plan.segments.prefix(index).reduce(0) { $0 + $1.durationSeconds }
                             let current = snapshot.currentSegmentIndex == index && !snapshot.isOvertime
                             let completed = snapshot.elapsedSeconds >= Double(start + segment.durationSeconds)
-                            HStack(spacing: 10) {
+                            Button {
+                                engine.jump(toSegment: segment.id)
+                            } label: {
+                              HStack(spacing: 10) {
                                 Image(systemName: completed ? "checkmark.circle.fill" : current ? "play.circle.fill" : "circle")
                                     .foregroundStyle(current || completed ? palette.accent : palette.secondary)
                                     .frame(width: 16)
@@ -260,6 +278,12 @@ struct TimerDisplayView: View {
                             .padding(.vertical, 8)
                             .background(current ? palette.track : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: 9))
+                            .contentShape(Rectangle())
+                            }
+                            .buttonStyle(AgendaButtonStyle(tint: palette.foreground))
+                            .help("Jump to \(segment.title) at \(DurationFormat.clock(Double(start)))")
+                            .accessibilityLabel("Jump to \(segment.title)")
+                            .accessibilityValue(current ? "Current section" : DurationFormat.clock(Double(start)))
                         }
                     }
                 }
@@ -273,6 +297,23 @@ struct TimerDisplayView: View {
             return "Next: \(next) in \(time)"
         }
         return "Ends in \(time)"
+    }
+}
+
+private struct AgendaButtonStyle: ButtonStyle {
+    let tint: Color
+    @State private var hovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(tint.opacity(configuration.isPressed ? 0.20 : hovered ? 0.10 : 0))
+            .clipShape(RoundedRectangle(cornerRadius: 9))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9)
+                    .strokeBorder(tint.opacity(hovered ? 0.22 : 0), lineWidth: 1)
+            }
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .onHover { hovered = $0 }
     }
 }
 

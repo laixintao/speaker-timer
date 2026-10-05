@@ -74,13 +74,13 @@ struct PresentationPlan: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     static let sample = PresentationPlan(
-        name: "50-minute presentation",
+        name: "50-minute tech talk",
         segments: [
-            Segment(title: "Introduction", durationSeconds: 5 * 60),
-            Segment(title: "Project overview", durationSeconds: 10 * 60),
-            Segment(title: "Core technical work", durationSeconds: 15 * 60),
-            Segment(title: "Impact & leadership", durationSeconds: 15 * 60),
-            Segment(title: "Summary", durationSeconds: 5 * 60),
+            Segment(title: "The problem & motivation", durationSeconds: 5 * 60),
+            Segment(title: "Core concepts", durationSeconds: 10 * 60),
+            Segment(title: "Architecture & deep dive", durationSeconds: 15 * 60),
+            Segment(title: "Live demo", durationSeconds: 10 * 60),
+            Segment(title: "Takeaways & Q&A", durationSeconds: 10 * 60),
         ]
     )
 }
