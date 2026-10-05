@@ -145,7 +145,7 @@ struct TimerDisplayView: View {
                 TimerCardBackground(theme: store.theme, overtime: snapshot.isOvertime)
                 content(snapshot: snapshot, palette: palette, size: geometry.size)
                     .padding(.horizontal, max(18, geometry.size.width * 0.045))
-                    .padding(.vertical, max(14, geometry.size.height * 0.085))
+                    .padding(.vertical, 20)
 
                 if let message = engine.transitionMessage {
                     Text(message)
@@ -173,7 +173,7 @@ struct TimerDisplayView: View {
     @ViewBuilder
     private func content(snapshot: TimelineSnapshot, palette: ThemePalette, size: CGSize) -> some View {
         let fontSize = min(82, max(43, size.width * 0.155))
-        VStack(alignment: .leading, spacing: max(5, size.height * 0.035)) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(DurationFormat.clock(snapshot.elapsedSeconds))
                     .font(.system(size: fontSize, weight: .medium, design: .rounded).monospacedDigit())
@@ -225,6 +225,44 @@ struct TimerDisplayView: View {
                     overtime: snapshot.isOvertime
                 )
                 .frame(height: max(8, min(12, size.height * 0.075)))
+
+                HStack {
+                    Text("AGENDA")
+                        .tracking(2)
+                    Spacer()
+                    Text(DurationFormat.editor(plan.totalSeconds) + " TOTAL")
+                }
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(palette.secondary)
+                .padding(.top, 4)
+
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(Array(plan.segments.enumerated()), id: \.element.id) { index, segment in
+                            let start = plan.segments.prefix(index).reduce(0) { $0 + $1.durationSeconds }
+                            let current = snapshot.currentSegmentIndex == index && !snapshot.isOvertime
+                            let completed = snapshot.elapsedSeconds >= Double(start + segment.durationSeconds)
+                            HStack(spacing: 10) {
+                                Image(systemName: completed ? "checkmark.circle.fill" : current ? "play.circle.fill" : "circle")
+                                    .foregroundStyle(current || completed ? palette.accent : palette.secondary)
+                                    .frame(width: 16)
+                                Text(segment.title)
+                                    .fontWeight(current ? .semibold : .regular)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 8)
+                                Text(DurationFormat.clock(Double(start)) + " – " + DurationFormat.clock(Double(start + segment.durationSeconds)))
+                                    .font(.system(size: 11, weight: .medium, design: .rounded).monospacedDigit())
+                                    .foregroundStyle(palette.secondary)
+                            }
+                            .font(.system(size: 13, design: .rounded))
+                            .foregroundStyle(palette.foreground)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .background(current ? palette.track : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 9))
+                        }
+                    }
+                }
             }
         }
     }

@@ -116,17 +116,16 @@ final class OverlayPanelController {
     private let playButton = OverlayButton()
     private let pinButton = OverlayButton()
     private let soundButton = OverlayButton()
-    private var hoverTimer: Timer?
-    private var lastHoverTime: TimeInterval = 0
+    private var moveTrackingTimer: Timer?
     private var controlsVisible = false
     private var resizeStartFrame = CGRect.zero
     private var isMoving = false
     private var isResizing = false
     private var cancellables: Set<AnyCancellable> = []
 
-    private let defaultSize = CGSize(width: 470, height: 172)
-    private let minimumSize = CGSize(width: 330, height: 126)
-    private let maximumSize = CGSize(width: 720, height: 264)
+    private let defaultSize = CGSize(width: 470, height: 400)
+    private let minimumSize = CGSize(width: 380, height: 320)
+    private let maximumSize = CGSize(width: 720, height: 800)
     private let controlsGap: CGFloat = 7
     private let edgeInset: CGFloat = 16
 
@@ -162,7 +161,7 @@ final class OverlayPanelController {
         hosting.frame = CGRect(origin: .zero, size: defaultSize)
         hosting.autoresizingMask = [.width, .height]
         displayPanel.contentView = hosting
-        displayPanel.ignoresMouseEvents = true
+        displayPanel.ignoresMouseEvents = false
 
         configureControls()
         configureResizeHandle()
@@ -182,14 +181,15 @@ final class OverlayPanelController {
             restoreOrPositionFrame()
         }
         displayPanel.orderFrontRegardless()
-        startHoverTracking()
+        setControlsVisible(true)
+        startMoveTracking()
         layoutChrome()
     }
 
     func hide() {
         finishMove()
         setControlsVisible(false)
-        stopHoverTracking()
+        stopMoveTracking()
         displayPanel.orderOut(nil)
     }
 
@@ -352,8 +352,8 @@ final class OverlayPanelController {
     }
 
     private func constrained(_ frame: CGRect, to area: CGRect) -> CGRect {
-        let width = min(maximumSize.width, max(minimumSize.width, min(frame.width, area.width)))
-        let height = min(maximumSize.height, max(minimumSize.height, min(frame.height, area.height)))
+        let width = min(area.width, min(maximumSize.width, max(minimumSize.width, frame.width)))
+        let height = min(area.height, min(maximumSize.height, max(minimumSize.height, frame.height)))
         return CGRect(
             x: min(max(frame.minX, area.minX), area.maxX - width),
             y: min(max(frame.minY, area.minY), area.maxY - height),
@@ -416,54 +416,31 @@ final class OverlayPanelController {
         defaults.set(NSStringFromRect(displayPanel.frame), forKey: "overlayFrame")
     }
 
-    private func startHoverTracking() {
-        guard hoverTimer == nil else { return }
+    private func startMoveTracking() {
+        guard moveTrackingTimer == nil else { return }
         let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] timer in
             guard let self else {
                 timer.invalidate()
                 return
             }
-            MainActor.assumeIsolated { self.updateHover(at: NSEvent.mouseLocation) }
+            MainActor.assumeIsolated { self.updateMoveTracking() }
         }
         timer.tolerance = 0.015
         RunLoop.main.add(timer, forMode: .common)
-        hoverTimer = timer
-        updateHover(at: NSEvent.mouseLocation)
+        moveTrackingTimer = timer
+        updateMoveTracking()
     }
 
-    private func stopHoverTracking() {
-        hoverTimer?.invalidate()
-        hoverTimer = nil
+    private func stopMoveTracking() {
+        moveTrackingTimer?.invalidate()
+        moveTrackingTimer = nil
     }
 
-    private func updateHover(at point: CGPoint) {
+    private func updateMoveTracking() {
         guard displayPanel.isVisible else { return }
-        let now = ProcessInfo.processInfo.systemUptime
         if isMoving {
             if NSEvent.pressedMouseButtons & 1 == 0 { finishMove() }
-            lastHoverTime = now
-            return
         }
-        let displayContains = displayPanel.frame.insetBy(dx: -3, dy: -3).contains(point)
-        let chromeContains = controlsVisible && (
-            controlsPanel.frame.contains(point)
-                || resizePanel.frame.contains(point)
-                || hoverBridge.contains(point)
-        )
-        if displayContains || chromeContains || isMoving || isResizing {
-            lastHoverTime = now
-            setControlsVisible(true)
-        } else if now - lastHoverTime > 0.28 {
-            setControlsVisible(false)
-        }
-    }
-
-    private var hoverBridge: CGRect {
-        let display = displayPanel.frame
-        let controls = controlsPanel.frame
-        let left = max(display.minX, controls.minX)
-        let right = min(display.maxX, controls.maxX)
-        return CGRect(x: left, y: controls.maxY, width: max(0, right - left), height: controlsGap)
     }
 
     private func setControlsVisible(_ visible: Bool) {

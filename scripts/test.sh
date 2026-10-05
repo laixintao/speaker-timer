@@ -19,7 +19,8 @@ xcrun swiftc -swift-version 5 -strict-concurrency=complete -warnings-as-errors -
     -sdk "$(xcrun --show-sdk-path)" \
     -module-cache-path build/ModuleCache \
     SpeakerTimer/Models.swift SpeakerTimer/DurationFormat.swift SpeakerTimer/TimerEngine.swift \
-    SpeakerTimer/PlanStore.swift SpeakerTimer/TimerViews.swift SpeakerTimer/EditorView.swift Tests/SmokeTests.swift \
+    SpeakerTimer/PlanStore.swift SpeakerTimer/TimerViews.swift SpeakerTimer/EditorView.swift \
+    SpeakerTimer/OverlayPanelController.swift Tests/SmokeTests.swift \
     -o "$TEST_APP/Contents/MacOS/SpeakerTimerTests"
 
 codesign --force --sign - "$TEST_APP"

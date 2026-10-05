@@ -157,9 +157,13 @@ struct SmokeTests {
             engine.refresh()
             render(
                 TimerDisplayView(engine: engine, store: store),
-                size: CGSize(width: 470, height: 172),
+                size: CGSize(width: 470, height: 400),
                 to: output.appendingPathComponent("timer-\(theme.rawValue).png")
             )
+            if theme == .blue {
+                renderOverlay(engine: engine, store: store, defaults: defaults,
+                              to: output.appendingPathComponent("speaker-timer.png"))
+            }
             engine.endSession()
             try? FileManager.default.removeItem(at: root)
             defaults.removePersistentDomain(forName: suite)
@@ -196,7 +200,7 @@ struct SmokeTests {
         engine.refresh()
         render(
             TimerDisplayView(engine: engine, store: store),
-            size: CGSize(width: 470, height: 172),
+            size: CGSize(width: 470, height: 400),
             to: output.appendingPathComponent("timer-overtime.png")
         )
         engine.endSession()
@@ -209,6 +213,43 @@ struct SmokeTests {
             let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             expect(size > 5_000, "visual snapshot \(name) should be a non-empty PNG")
         }
+    }
+
+    private static func renderOverlay(engine: TimerEngine, store: PlanStore, defaults: UserDefaults, to output: URL) {
+        let existing = Set(NSApp.windows.map(\.windowNumber))
+        let overlay = OverlayPanelController(engine: engine, store: store, defaults: defaults)
+        overlay.show()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        let windows = NSApp.windows.filter { !existing.contains($0.windowNumber) && $0.isVisible }
+        expect(windows.count == 3, "display, controls, and resize handle should remain visible without hover")
+        guard let first = windows.first else { overlay.hide(); return }
+        let bounds = windows.reduce(first.frame) { $0.union($1.frame) }.insetBy(dx: -24, dy: -24)
+        let image = NSImage(size: bounds.size)
+        image.lockFocus()
+        NSColor(calibratedRed: 0.10, green: 0.12, blue: 0.17, alpha: 1).setFill()
+        NSBezierPath(rect: CGRect(origin: .zero, size: bounds.size)).fill()
+        for window in windows {
+            guard let view = window.contentView else { continue }
+            view.layoutSubtreeIfNeeded()
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            let rect = window.frame.offsetBy(dx: -bounds.minX, dy: -bounds.minY)
+            let radius: CGFloat = rect.height > 100 ? 24 : rect.height > 30 ? 12 : 8
+            NSGraphicsContext.saveGraphicsState()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).addClip()
+            bitmap.draw(in: rect)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        image.unlockFocus()
+        if let tiff = image.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiff),
+           let png = bitmap.representation(using: .png, properties: [:]) {
+            try? png.write(to: output)
+        } else {
+            expect(false, "could not render complete overlay screenshot")
+        }
+        overlay.hide()
+        expect(windows.allSatisfy { !$0.isVisible }, "ending overlay should hide all three panels")
     }
 
     private static func render<V: View>(_ view: V, size: CGSize, to output: URL) {

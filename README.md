@@ -1,6 +1,10 @@
 # Speaker Timer
 
-Speaker Timer is a native macOS presentation timer that keeps your run of show visible above full-screen slides. It counts up from zero, shows the current section and the next checkpoint, and continues into overtime so you always know where the talk stands.
+Speaker Timer is a native macOS presentation timer that keeps your full agenda visible above full-screen slides. It counts up from zero, highlights the current section, shows upcoming checkpoints, and continues into overtime so you always know where the talk stands.
+
+![Speaker Timer with a 50-minute agenda, completed and current sections, checkpoint times, and always-visible controls](docs/images/speaker-timer.png)
+
+Your entire talk at a glance: elapsed time, progress, every section's time range, and controls that stay within reach.
 
 ## Highlights
 
@@ -9,7 +13,8 @@ Speaker Timer is a native macOS presentation timer that keeps your run of show v
 - Named presentation plans with editable, reorderable sections.
 - Visual and optional sound alert at each checkpoint.
 - Four high-contrast timer themes: Frosted Dark, Black, Cream, and Blue.
-- Non-activating, click-through display with controls that appear on hover.
+- Non-activating floating display with always-visible controls.
+- Complete agenda with time ranges, completed sections, and a highlighted current section.
 - Accurate pause, resume, wake, and overtime behavior based on a monotonic clock.
 - No account, analytics, network access, or third-party dependencies.
 
@@ -29,10 +34,10 @@ Releases are ad-hoc signed and are not notarized with an Apple Developer ID. If 
 
 1. Create or select a presentation plan.
 2. Add sections and enter durations as minutes (`5`), minutes and seconds (`5:30`), or hours, minutes, and seconds (`1:05:00`).
-3. Press **Start**. Move the floating timer to the presenter display and resize it from the hover controls.
+3. Press **Start**. Move the floating timer to the presenter display and resize it using the always-visible controls.
 4. Press Space while Speaker Timer is active to pause or resume. Press ⌘R to reset.
 
-The timer display itself does not intercept clicks or take focus from the slide application. Hover over it to reveal the move handle and controls. With an extended desktop, a timer placed on the MacBook display is not shown on the external presentation display.
+The floating timer does not take keyboard focus from the slide application. Its controls stay visible, and you can scroll the agenda when it is longer than the window. With an extended desktop, a timer placed on the MacBook display is not shown on the external presentation display.
 
 ## Build from source
 
