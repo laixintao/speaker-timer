@@ -131,9 +131,17 @@ struct SegmentedProgressBar: View {
     }
 }
 
+private struct AgendaHitRegions: PreferenceKey {
+    static var defaultValue: [CGRect] { [] }
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
 struct TimerDisplayView: View {
     @ObservedObject var engine: TimerEngine
     @ObservedObject var store: PlanStore
+    var onInteractiveRegionsChange: ([CGRect]) -> Void = { _ in }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -181,6 +189,8 @@ struct TimerDisplayView: View {
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: engine.transitionMessage)
         }
+        .coordinateSpace(name: "timerCard")
+        .onPreferenceChange(AgendaHitRegions.self, perform: onInteractiveRegionsChange)
         .preferredColorScheme(store.theme == .cream ? .light : .dark)
     }
 
@@ -281,6 +291,12 @@ struct TimerDisplayView: View {
                             .contentShape(Rectangle())
                             }
                             .buttonStyle(AgendaButtonStyle(tint: palette.foreground))
+                            .background {
+                                GeometryReader { row in
+                                    Color.clear.preference(key: AgendaHitRegions.self,
+                                                           value: [row.frame(in: .named("timerCard"))])
+                                }
+                            }
                             .help("Jump to \(segment.title) at \(DurationFormat.clock(Double(start)))")
                             .accessibilityLabel("Jump to \(segment.title)")
                             .accessibilityValue(current ? "Current section" : DurationFormat.clock(Double(start)))

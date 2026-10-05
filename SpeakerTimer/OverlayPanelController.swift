@@ -49,11 +49,6 @@ private final class OverlayButton: NSButton {
 }
 
 @MainActor
-private final class DraggableHostingView<Content: View>: NSHostingView<Content> {
-    override var mouseDownCanMoveWindow: Bool { true }
-}
-
-@MainActor
 private final class ResizeHandleView: NSView {
     var onBegin: (() -> Void)?
     var onDrag: ((CGPoint) -> Void)?
@@ -124,6 +119,8 @@ final class OverlayPanelController {
     private var resizeStartFrame = CGRect.zero
     private var isResizing = false
     private var cancellables: Set<AnyCancellable> = []
+    private var dragMonitor: Any?
+    private var interactiveRegions: [CGRect] = []
 
     private let defaultSize = CGSize(width: 470, height: 454)
     private let minimumSize = CGSize(width: 380, height: 374)
@@ -158,12 +155,13 @@ final class OverlayPanelController {
         displayPanel = makePanel(size: defaultSize, shadow: true)
         resizePanel = makePanel(size: CGSize(width: 26, height: 26), shadow: false)
 
-        let hosting = DraggableHostingView(rootView: TimerDisplayView(engine: engine, store: store))
+        let hosting = NSHostingView(rootView: TimerDisplayView(engine: engine, store: store,
+            onInteractiveRegionsChange: { [weak self] regions in self?.interactiveRegions = regions }))
         hosting.frame = CGRect(origin: .zero, size: defaultSize)
         hosting.autoresizingMask = [.width, .height]
         displayPanel.contentView = hosting
         displayPanel.ignoresMouseEvents = false
-        displayPanel.isMovableByWindowBackground = true
+        displayPanel.isMovableByWindowBackground = false
 
         configureControls()
         hosting.addSubview(controlsView)
@@ -189,13 +187,48 @@ final class OverlayPanelController {
             restoreOrPositionFrame()
         }
         displayPanel.orderFrontRegardless()
+        installDragMonitor()
         setControlsVisible(true)
         layoutChrome()
     }
 
     func hide() {
+        if let dragMonitor { NSEvent.removeMonitor(dragMonitor) }
+        dragMonitor = nil
         setControlsVisible(false)
         displayPanel.orderOut(nil)
+    }
+
+    private func installDragMonitor() {
+        guard dragMonitor == nil else { return }
+        dragMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated {
+                guard let self, event.window === self.displayPanel,
+                      self.canDragBackground(at: event.locationInWindow) else { return false }
+                self.displayPanel.performDrag(with: event)
+                self.keepOnScreen()
+                self.saveFrame()
+                return true
+            }
+            return handled ? nil : event
+        }
+    }
+
+    /// Coordinates are in the window's base space, matching mouse events.
+    func canDragBackground(at windowPoint: CGPoint) -> Bool {
+        guard let content = displayPanel.contentView else { return false }
+        let point = content.convert(windowPoint, from: nil)
+        guard content.bounds.contains(point) else { return false }
+        var hit = content.hitTest(windowPoint)
+        while let view = hit, view !== content {
+            if view is NSControl { return false }
+            hit = view.superview
+        }
+        let cardPoint = CGPoint(x: point.x, y: content.isFlipped ? point.y : content.bounds.height - point.y)
+        // The footer belongs to AppKit, not to off-screen rows in the scrolling agenda.
+        if cardPoint.y < content.bounds.height - 74,
+           interactiveRegions.contains(where: { $0.contains(cardPoint) }) { return false }
+        return true
     }
 
     private func configureControls() {

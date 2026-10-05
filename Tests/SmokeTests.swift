@@ -272,10 +272,15 @@ struct SmokeTests {
             (view as? NSButton).map { [$0] } ?? view.subviews.flatMap { buttons(in: $0) }
         }
         let display = windows.max { $0.frame.height < $1.frame.height }
-        expect(display?.isMovableByWindowBackground == true, "overlay should support dragging its background")
-        expect(display?.contentView?.mouseDownCanMoveWindow == true, "hosting view should allow blank-area dragging")
+        expect(overlay.canDragBackground(at: CGPoint(x: 8, y: 100)), "empty card margin should start a drag")
+        expect(overlay.canDragBackground(at: CGPoint(x: 200, y: 8)), "empty footer should start a drag")
         let embeddedButtons = display?.contentView.map { buttons(in: $0) } ?? []
         expect(embeddedButtons.count == 6, "all six timer buttons should be embedded in the main card")
+        for button in embeddedButtons {
+            let center = button.convert(CGPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+            expect(!overlay.canDragBackground(at: center), "toolbar buttons must not start window dragging")
+        }
+        expect(!overlay.canDragBackground(at: CGPoint(x: 100, y: 454 - 244)), "agenda row should remain clickable instead of dragging")
         guard let first = windows.first else { overlay.hide(); return }
         let bounds = windows.reduce(first.frame) { $0.union($1.frame) }.insetBy(dx: -24, dy: -24)
         let image = NSImage(size: bounds.size)
