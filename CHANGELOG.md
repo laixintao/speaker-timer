@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5 — 2026-10-09
+
+- Show remaining time for the current presentation section (`8fddd6a`)
+
+[Release notes](docs/releases/v1.0.5.md)
+
 ## 1.0.4 — 2026-10-05
 
 - Handle background dragging before SwiftUI consumes mouse events (`73db860`)
