@@ -229,11 +229,18 @@ struct TimerDisplayView: View {
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 if !snapshot.isOvertime {
-                    Text(nextText(snapshot))
-                        .font(.system(size: max(11, min(14, size.width * 0.03)), weight: .medium, design: .rounded).monospacedDigit())
-                        .foregroundStyle(palette.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                    HStack(spacing: 6) {
+                        Text("Section left")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(palette.secondary)
+                        Text(DurationFormat.remaining(snapshot.secondsUntilBoundary))
+                            .font(.system(size: 20, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(palette.accent)
+                    }
+                    .fixedSize()
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Time remaining in current section")
+                    .accessibilityValue(DurationFormat.remaining(snapshot.secondsUntilBoundary))
                 } else {
                     Text("OVERTIME")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
@@ -307,13 +314,6 @@ struct TimerDisplayView: View {
         }
     }
 
-    private func nextText(_ snapshot: TimelineSnapshot) -> String {
-        let time = DurationFormat.remaining(snapshot.secondsUntilBoundary)
-        if let next = snapshot.nextTitle {
-            return "Next: \(next) in \(time)"
-        }
-        return "Ends in \(time)"
-    }
 }
 
 private struct AgendaButtonStyle: ButtonStyle {

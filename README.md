@@ -9,7 +9,7 @@ Your entire talk at a glance: elapsed time, progress, every section's time range
 ## Highlights
 
 - Always-on-top timer that remains visible over full-screen Keynote, PowerPoint, Google Slides, and Zoom.
-- Proportional segmented progress bar with current and next-section guidance.
+- Proportional segmented progress bar with a live countdown for the current section.
 - Named presentation plans with editable, reorderable sections.
 - Visual and optional sound alert at each checkpoint.
 - Four high-contrast timer themes: Frosted Dark, Black, Cream, and Blue.
